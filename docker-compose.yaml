@@ -1,0 +1,13 @@
+services:
+  neuralops-portal:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: neuralops-portal
+    ports:
+      - "3001:3000"
+    volumes:
+      - .:/app
+    env_file:
+      - .env.local
+    restart: unless-stopped
