@@ -8,11 +8,15 @@ import { login } from "@/services/auth.service";
 
 export const Route = createFileRoute("/login")({
   head: () => ({ meta: [{ title: "Sign in — NeuralOps" }] }),
+  validateSearch: (search: Record<string, unknown>) => ({
+    redirect: (search.redirect as string) ?? "/activate",
+  }),
   component: LoginPage,
 });
 
 function LoginPage() {
   const navigate = useNavigate();
+  const { redirect } = Route.useSearch();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -24,7 +28,7 @@ function LoginPage() {
     setLoading(true);
     try {
       await login({ email, password });
-      navigate({ to: "/activate" });
+      navigate({ to: redirect as "/activate" });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {

@@ -1,10 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useState, type FormEvent } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useState, useEffect, type FormEvent } from "react";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { activateDevice } from "@/services/auth.service";
+import { supabase } from "@/lib/supabase";
 
 export const Route = createFileRoute("/activate")({
   head: () => ({ meta: [{ title: "Activate device — NeuralOps" }] }),
@@ -12,10 +13,22 @@ export const Route = createFileRoute("/activate")({
 });
 
 function ActivatePage() {
+  const navigate = useNavigate();
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) {
+        navigate({ to: "/login", search: { redirect: "/activate" } });
+      } else {
+        setChecking(false);
+      }
+    });
+  }, [navigate]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -29,6 +42,10 @@ function ActivatePage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (checking) {
+    return null;
   }
 
   if (success) {
