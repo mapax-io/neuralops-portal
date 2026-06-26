@@ -1,9 +1,10 @@
 /**
  * device-poll
- * Version: 2.0.0 | Updated: 2026-06-25
+ * Version: 2.1.0 | Updated: 2026-06-25
  * Changelog:
+ *   2.1.0 — Returns session_expires_at in active response
+ *           Returns session_expired status if session has passed
  *   2.0.0 — Switched lookup from temporary code to permanent device_id (UUID)
- *           Removed expiry check — device_id registrations don't expire
  *   1.0.0 — Initial release with code-based lookup
  *
  * Called by the local NeuralOps app every 3 seconds.
@@ -65,6 +66,14 @@ Deno.serve(async (req) => {
     )
   }
 
+  // Check if session has expired
+  if (device.session_expires_at && new Date(device.session_expires_at) < new Date()) {
+    return new Response(
+      JSON.stringify({ status: 'session_expired' }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    )
+  }
+
   // Active — update last_used_at and return identity
   await supabase
     .from('device_codes')
@@ -77,6 +86,7 @@ Deno.serve(async (req) => {
       email: device.user_email,
       user_id: device.user_id,
       device_name: device.device_name,
+      session_expires_at: device.session_expires_at,
     }),
     { status: 200, headers: { 'Content-Type': 'application/json' } }
   )

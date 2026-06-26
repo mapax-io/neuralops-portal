@@ -1,7 +1,8 @@
 /**
  * device-verify
- * Version: 2.0.0 | Updated: 2026-06-25
+ * Version: 2.1.0 | Updated: 2026-06-25
  * Changelog:
+ *   2.1.0 — Added session_expires_at (30 days) set on activation
  *   2.0.0 — Switched from typed code (XXXX-XXXX) to permanent device_id (UUID)
  *           Auto-called by portal after login — user never types anything
  *           ALLOWED_ORIGIN enforcement retained
@@ -83,6 +84,9 @@ Deno.serve(async (req) => {
     )
   }
 
+  // Session lasts 30 days from activation
+  const sessionExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+
   const { error: updateError } = await supabase
     .from('device_codes')
     .update({
@@ -91,6 +95,7 @@ Deno.serve(async (req) => {
       status: 'active',
       verified_at: new Date().toISOString(),
       last_used_at: new Date().toISOString(),
+      session_expires_at: sessionExpiresAt.toISOString(),
     })
     .eq('device_id', device_id)
 
@@ -102,7 +107,11 @@ Deno.serve(async (req) => {
   }
 
   return new Response(
-    JSON.stringify({ success: true, device_name: device.device_name }),
+    JSON.stringify({
+      success: true,
+      device_name: device.device_name,
+      session_expires_at: sessionExpiresAt.toISOString(),
+    }),
     { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
   )
 })
