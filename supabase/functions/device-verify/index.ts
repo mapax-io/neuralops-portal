@@ -1,3 +1,17 @@
+/**
+ * device-verify
+ * Version: 2.0.0 | Updated: 2026-06-25
+ * Changelog:
+ *   2.0.0 — Switched from typed code (XXXX-XXXX) to permanent device_id (UUID)
+ *           Auto-called by portal after login — user never types anything
+ *           ALLOWED_ORIGIN enforcement retained
+ *   1.1.0 — Added ALLOWED_ORIGIN origin check
+ *   1.0.0 — Initial release
+ *
+ * Called by the portal immediately after user logs in.
+ * Requires: valid Supabase user JWT
+ */
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 Deno.serve(async (req) => {

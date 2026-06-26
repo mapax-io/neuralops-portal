@@ -1,5 +1,11 @@
 /**
  * device-request
+ * Version: 2.0.0 | Updated: 2026-06-25
+ * Changelog:
+ *   2.0.0 — Switched from random code (XXXX-XXXX) to permanent device_id (UUID)
+ *           Upserts on conflict so re-registration resets to pending cleanly
+ *   1.0.0 — Initial release with random code generation
+ *
  * Called by the local NeuralOps app on boot.
  * Accepts a permanent device_id (UUID) from the caller instead of generating a random code.
  * Requires: anon key + X-NeuralOps-Token (install secret)

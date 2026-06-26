@@ -1,5 +1,11 @@
 /**
  * device-poll
+ * Version: 2.0.0 | Updated: 2026-06-25
+ * Changelog:
+ *   2.0.0 — Switched lookup from temporary code to permanent device_id (UUID)
+ *           Removed expiry check — device_id registrations don't expire
+ *   1.0.0 — Initial release with code-based lookup
+ *
  * Called by the local NeuralOps app every 3 seconds.
  * Looks up by device_id (permanent UUID) instead of temporary code.
  * Requires: anon key + X-NeuralOps-Token (install secret)
