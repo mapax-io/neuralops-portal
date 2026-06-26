@@ -1,21 +1,11 @@
 /**
  * device-request
- * Called by the local NeuralOps app on first boot.
+ * Called by the local NeuralOps app on boot.
+ * Accepts a permanent device_id (UUID) from the caller instead of generating a random code.
  * Requires: anon key + X-NeuralOps-Token (install secret)
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
-function generateCode(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-  let part1 = ''
-  let part2 = ''
-  for (let i = 0; i < 4; i++) {
-    part1 += chars[Math.floor(Math.random() * chars.length)]
-    part2 += chars[Math.floor(Math.random() * chars.length)]
-  }
-  return `${part1}-${part2}`
-}
 
 Deno.serve(async (req) => {
   // Verify install token
@@ -33,31 +23,39 @@ Deno.serve(async (req) => {
   )
 
   const body = await req.json().catch(() => ({}))
+  const deviceId = body.device_id
   const deviceName = body.device_name || 'Unknown Device'
   const deviceIp = req.headers.get('x-forwarded-for') || null
 
-  const code = generateCode()
-  const expiresAt = new Date(Date.now() + 5 * 60 * 1000)
+  if (!deviceId) {
+    return new Response(
+      JSON.stringify({ error: 'device_id is required' }),
+      { status: 400, headers: { 'Content-Type': 'application/json' } }
+    )
+  }
 
+  // Upsert — if device_id already exists (re-registration), reset it to pending
   const { error } = await supabase
     .from('device_codes')
-    .insert({
-      code,
+    .upsert({
+      device_id: deviceId,
       device_name: deviceName,
       device_ip: deviceIp,
       status: 'pending',
-      expires_at: expiresAt.toISOString(),
-    })
+      user_id: null,
+      user_email: null,
+      verified_at: null,
+    }, { onConflict: 'device_id' })
 
   if (error) {
     return new Response(
-      JSON.stringify({ error: 'Failed to generate code' }),
+      JSON.stringify({ error: 'Failed to register device' }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     )
   }
 
   return new Response(
-    JSON.stringify({ code, expires_in: 300, expires_at: expiresAt.toISOString() }),
+    JSON.stringify({ device_id: deviceId, status: 'pending' }),
     { status: 200, headers: { 'Content-Type': 'application/json' } }
   )
 })

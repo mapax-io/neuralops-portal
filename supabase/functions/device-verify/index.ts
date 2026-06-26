@@ -33,10 +33,10 @@ Deno.serve(async (req) => {
     )
   }
 
-  const { code } = await req.json()
-  if (!code) {
+  const { device_id } = await req.json()
+  if (!device_id) {
     return new Response(
-      JSON.stringify({ error: 'Device code is required' }),
+      JSON.stringify({ error: 'device_id is required' }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
@@ -55,17 +55,16 @@ Deno.serve(async (req) => {
     )
   }
 
-  const { data: deviceCode, error: codeError } = await supabase
+  const { data: device, error: deviceError } = await supabase
     .from('device_codes')
     .select('*')
-    .eq('code', code.toUpperCase())
+    .eq('device_id', device_id)
     .eq('status', 'pending')
-    .gt('expires_at', new Date().toISOString())
     .single()
 
-  if (codeError || !deviceCode) {
+  if (deviceError || !device) {
     return new Response(
-      JSON.stringify({ error: 'Invalid or expired device code' }),
+      JSON.stringify({ error: 'Device not found or already activated' }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
@@ -79,7 +78,7 @@ Deno.serve(async (req) => {
       verified_at: new Date().toISOString(),
       last_used_at: new Date().toISOString(),
     })
-    .eq('id', deviceCode.id)
+    .eq('device_id', device_id)
 
   if (updateError) {
     return new Response(
@@ -89,7 +88,7 @@ Deno.serve(async (req) => {
   }
 
   return new Response(
-    JSON.stringify({ success: true, device_name: deviceCode.device_name }),
+    JSON.stringify({ success: true, device_name: device.device_name }),
     { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
   )
 })

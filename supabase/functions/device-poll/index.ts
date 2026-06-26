@@ -1,6 +1,7 @@
 /**
  * device-poll
  * Called by the local NeuralOps app every 3 seconds.
+ * Looks up by device_id (permanent UUID) instead of temporary code.
  * Requires: anon key + X-NeuralOps-Token (install secret)
  */
 
@@ -17,11 +18,11 @@ Deno.serve(async (req) => {
   }
 
   const url = new URL(req.url)
-  const code = url.searchParams.get('code')
+  const deviceId = url.searchParams.get('device_id')
 
-  if (!code) {
+  if (!deviceId) {
     return new Response(
-      JSON.stringify({ error: 'Code is required' }),
+      JSON.stringify({ error: 'device_id is required' }),
       { status: 400, headers: { 'Content-Type': 'application/json' } }
     )
   }
@@ -31,36 +32,29 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   )
 
-  const { data: deviceCode } = await supabase
+  const { data: device } = await supabase
     .from('device_codes')
     .select('*')
-    .eq('code', code.toUpperCase())
+    .eq('device_id', deviceId)
     .single()
 
-  if (!deviceCode) {
+  if (!device) {
     return new Response(
       JSON.stringify({ status: 'not_found' }),
       { status: 404, headers: { 'Content-Type': 'application/json' } }
     )
   }
 
-  if (deviceCode.status === 'pending' && new Date(deviceCode.expires_at) < new Date()) {
-    return new Response(
-      JSON.stringify({ status: 'expired' }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
-    )
-  }
-
-  if (deviceCode.status === 'pending') {
-    return new Response(
-      JSON.stringify({ status: 'pending' }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
-    )
-  }
-
-  if (deviceCode.status === 'revoked') {
+  if (device.status === 'revoked') {
     return new Response(
       JSON.stringify({ status: 'revoked' }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    )
+  }
+
+  if (device.status === 'pending') {
+    return new Response(
+      JSON.stringify({ status: 'pending' }),
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     )
   }
@@ -69,14 +63,14 @@ Deno.serve(async (req) => {
   await supabase
     .from('device_codes')
     .update({ last_used_at: new Date().toISOString() })
-    .eq('id', deviceCode.id)
+    .eq('device_id', deviceId)
 
   return new Response(
     JSON.stringify({
       status: 'active',
-      email: deviceCode.user_email,
-      user_id: deviceCode.user_id,
-      device_name: deviceCode.device_name,
+      email: device.user_email,
+      user_id: device.user_id,
+      device_name: device.device_name,
     }),
     { status: 200, headers: { 'Content-Type': 'application/json' } }
   )

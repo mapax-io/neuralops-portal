@@ -1,45 +1,108 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState, type FormEvent } from "react";
+import { useState, useEffect, type FormEvent } from "react";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { login } from "@/services/auth.service";
+import { supabase } from "@/lib/supabase";
 
 export const Route = createFileRoute("/login")({
   head: () => ({ meta: [{ title: "Sign in — NeuralOps" }] }),
   validateSearch: (search: Record<string, unknown>) => ({
-    redirect: (search.redirect as string) ?? "/activate",
+    device_id: (search.device_id as string) ?? null,
   }),
   component: LoginPage,
 });
 
+async function activateDevice(deviceId: string, token: string): Promise<void> {
+  const response = await fetch(
+    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/device-verify`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ device_id: deviceId }),
+    }
+  );
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.error || "Failed to activate device");
+  }
+}
+
 function LoginPage() {
   const navigate = useNavigate();
-  const { redirect } = Route.useSearch();
+  const { device_id } = Route.useSearch();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [activating, setActivating] = useState(false);
+
+  // If device_id present, check for existing session and auto-activate
+  useEffect(() => {
+    if (!device_id) return;
+
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session) return; // no session — show login form
+
+      // Already signed in — activate immediately
+      setActivating(true);
+      try {
+        await activateDevice(device_id, session.access_token);
+        navigate({ to: "/activated" });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Activation failed");
+        setActivating(false);
+      }
+    });
+  }, [device_id, navigate]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
     try {
-      await login({ email, password });
-      navigate({ to: redirect as "/activate" });
+      const { data } = await login({ email, password });
+      const token = data?.session?.access_token;
+
+      if (device_id && token) {
+        // Activate device right after login
+        setActivating(true);
+        await activateDevice(device_id, token);
+        navigate({ to: "/activated" });
+      } else {
+        navigate({ to: "/activate" });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setLoading(false);
+      setActivating(false);
     }
+  }
+
+  if (activating) {
+    return (
+      <AuthShell title="Activating device…">
+        <p className="text-center text-sm text-foreground-muted">
+          Please wait while we activate your device.
+        </p>
+      </AuthShell>
+    );
   }
 
   return (
     <AuthShell
       title="Welcome back"
-      subtitle="Sign in to your NeuralOps account."
+      subtitle={
+        device_id
+          ? "Sign in to activate this device."
+          : "Sign in to your NeuralOps account."
+      }
       footer={
         <>
           Don't have an account?{" "}
